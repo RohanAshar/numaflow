@@ -8,6 +8,7 @@ spec:
       source:
         http: {}
     - name: atoi
+      partitions: 3
       scale:
         min: 3
       udf:

@@ -640,7 +640,7 @@ func GenerateBufferName(namespace, pipelineName, vertex string, index int) strin
 }
 
 func GenerateBufferNames(namespace, pipelineName, vertex string, numOfPartitions int) []string {
-	result := []string{}
+	var result []string
 	for i := 0; i < numOfPartitions; i++ {
 		result = append(result, GenerateBufferName(namespace, pipelineName, vertex, i))
 	}

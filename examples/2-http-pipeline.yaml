@@ -17,7 +17,12 @@ spec:
 #           token:
 #             name: my-secret
 #             key: my-key
-    - name: cat
+    - name: first-cat
+      udf:
+        builtin:
+          name: cat # A built-in UDF which simply cats the message
+    - name: second-cat
+      partitions: 3
       udf:
         builtin:
           name: cat # A built-in UDF which simply cats the message
@@ -27,6 +32,8 @@ spec:
         log: {}
   edges:
     - from: in
-      to: cat
-    - from: cat
+      to: first-cat
+    - from: first-cat
+      to: second-cat
+    - from: second-cat
       to: out
