@@ -73,7 +73,6 @@ func NewPublish(ctx context.Context, processorEntity processor.ProcessorEntitier
 		podHeartbeatRate:     5,
 		isSource:             false,
 		delay:                0,
-		isReduce:             false,
 		toVertexPartition:    0,
 	}
 	for _, opt := range inputOpts {
@@ -137,9 +136,7 @@ func (p *publish) PublishWatermark(wm wmb.Watermark, offset isb.Offset) {
 	var otValue = wmb.WMB{
 		Offset:    seq,
 		Watermark: validWM.UnixMilli(),
-	}
-	if p.opts.isReduce {
-		otValue.Partition = p.opts.toVertexPartition
+		Partition: p.opts.toVertexPartition,
 	}
 	value, err := otValue.EncodeToBytes()
 	if err != nil {
@@ -200,10 +197,7 @@ func (p *publish) PublishIdleWatermark(wm wmb.Watermark, offset isb.Offset) {
 		Offset:    seq,
 		Watermark: validWM.UnixMilli(),
 		Idle:      true,
-	}
-	// for reduce, set the partition
-	if p.opts.isReduce {
-		otValue.Partition = p.opts.toVertexPartition
+		Partition: p.opts.toVertexPartition,
 	}
 	value, err := otValue.EncodeToBytes()
 	if err != nil {

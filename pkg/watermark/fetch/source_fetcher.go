@@ -26,6 +26,8 @@ import (
 	"github.com/numaproj/numaflow/pkg/watermark/processor"
 	"go.uber.org/zap"
 
+	"github.com/numaproj/numaflow/pkg/watermark/processor"
+
 	"github.com/numaproj/numaflow/pkg/isb"
 	"github.com/numaproj/numaflow/pkg/shared/logging"
 	"github.com/numaproj/numaflow/pkg/watermark/store"
@@ -66,8 +68,8 @@ func (e *sourceFetcher) GetWatermark(_ isb.Offset) wmb.Watermark {
 		if !p.IsActive() {
 			continue
 		}
-		if p.OffsetTimeline().GetHeadWatermark() < epoch {
-			epoch = p.OffsetTimeline().GetHeadWatermark()
+		if p.GetOffsetTimeline().GetHeadWatermark() < epoch {
+			epoch = p.GetOffsetTimeline().GetHeadWatermark()
 		}
 	}
 	if epoch == math.MaxInt64 {
@@ -84,8 +86,8 @@ func (e *sourceFetcher) GetHeadWatermark() wmb.Watermark {
 		if !p.IsActive() {
 			continue
 		}
-		if p.OffsetTimeline().GetHeadWatermark() > epoch {
-			epoch = p.OffsetTimeline().GetHeadWatermark()
+		if p.GetOffsetTimeline().GetHeadWatermark() > epoch {
+			epoch = p.GetOffsetTimeline().GetHeadWatermark()
 		}
 	}
 	if epoch == math.MinInt64 {

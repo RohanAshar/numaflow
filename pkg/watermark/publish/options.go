@@ -34,8 +34,6 @@ type publishOptions struct {
 	// Whether it is sink publisher or not
 	// isSource and isSink should not be both true
 	isSink bool
-	// isReduce to indicate it is reduce publisher
-	isReduce bool
 	// toVertexPartition to indicate the partition of toVertex buffer
 	toVertexPartition int32
 }
@@ -72,13 +70,6 @@ func IsSource() PublishOption {
 func IsSink() PublishOption {
 	return func(opts *publishOptions) {
 		opts.isSink = true
-	}
-}
-
-// IsReduce indicates it's a reduce publisher
-func IsReduce() PublishOption {
-	return func(opts *publishOptions) {
-		opts.isReduce = true
 	}
 }
 

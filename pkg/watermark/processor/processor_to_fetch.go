@@ -24,6 +24,8 @@ import (
 	"github.com/numaproj/numaflow/pkg/watermark/timeline"
 	"go.uber.org/zap"
 
+	"github.com/numaproj/numaflow/pkg/watermark/timeline"
+
 	"github.com/numaproj/numaflow/pkg/shared/logging"
 )
 
@@ -57,11 +59,13 @@ type ProcessorToFetch struct {
 	log            *zap.SugaredLogger
 }
 
-func (p *ProcessorToFetch) Entity() ProcessorEntitier {
+// GetEntity returns the processor entity.
+func (p *ProcessorToFetch) GetEntity() ProcessorEntitier {
 	return p.entity
 }
 
-func (p *ProcessorToFetch) OffsetTimeline() *timeline.OffsetTimeline {
+// GetOffsetTimeline returns the processor's OT.
+func (p *ProcessorToFetch) GetOffsetTimeline() *timeline.OffsetTimeline {
 	return p.offsetTimeline
 }
 
