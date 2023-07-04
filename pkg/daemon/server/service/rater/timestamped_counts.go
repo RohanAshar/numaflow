@@ -18,6 +18,8 @@ package server
 
 import (
 	"fmt"
+	"github.com/numaproj/numaflow/pkg/shared/logging"
+	"go.uber.org/zap"
 	"sync"
 )
 
@@ -130,6 +132,7 @@ func (tc *TimestampedCounts) CloseWindow(prev *TimestampedCounts) {
 			podPartitionDelta[podName][partitionName] = delta
 		}
 	}
+	logging.NewLogger().Named("TimeStampedCount").Info("Closing Window - Delta", zap.Any("Delta Map", podPartitionDelta))
 
 	// finalize the window by setting isWindowClosed to true and delta to the calculated value
 	tc.lock.Lock()

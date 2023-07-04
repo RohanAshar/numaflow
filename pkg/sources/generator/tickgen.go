@@ -190,7 +190,7 @@ func NewMemGen(vertexInstance *dfv1.VertexInstance,
 		pipelineName:   vertexInstance.Vertex.Spec.PipelineName,
 		genfn:          recordGenerator,
 		vertexInstance: vertexInstance,
-		srcchan:        make(chan record, rpu*5),
+		srcchan:        make(chan record, rpu*10),
 		readTimeout:    3 * time.Second, // default timeout
 	}
 
@@ -251,6 +251,9 @@ func (mg *memgen) IsEmpty() bool {
 	return len(mg.srcchan) == 0
 }
 
+var globalTicker = time.NewTicker(time.Second)
+var globalCounter = 0
+
 func (mg *memgen) Read(ctx context.Context, count int64) ([]*isb.ReadMessage, error) {
 	msgs := make([]*isb.ReadMessage, 0, count)
 	// timeout should not be re-triggered for every run of the for loop. it is for the entire Read() call.
@@ -261,11 +264,15 @@ loop:
 		// we implement Read With Wait semantics
 		select {
 		case r := <-mg.srcchan:
+			globalCounter++
 			tickgenSourceReadCount.With(map[string]string{metrics.LabelVertex: mg.name, metrics.LabelPipeline: mg.pipelineName}).Inc()
 			msgs = append(msgs, mg.newReadMessage(r.key, r.data, r.offset))
 		case <-timeout:
 			mg.logger.Debugw("Timed out waiting for messages to read.", zap.Duration("waited", mg.readTimeout))
 			break loop
+		case <-globalTicker.C:
+			mg.logger.Info("No. of messages produced per second", zap.Int("Msg Cnt", globalCounter))
+			globalCounter = 0
 		}
 	}
 	return msgs, nil
