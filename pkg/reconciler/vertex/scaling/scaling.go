@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	uuid2 "github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -315,6 +316,8 @@ func (s *Scaler) scaleOneVertex(ctx context.Context, key string, worker int) err
 }
 
 func (s *Scaler) desiredReplicas(ctx context.Context, vertex *dfv1.Vertex, rate float64, pending int64, totalBufferLength int64, targetAvailableBufferLength int64) int32 {
+	uuid, _ := uuid2.NewUUID()
+	println("desiredReplicas was called ", vertex.Name, " rate ", rate, " pending ", pending, " totalBufferLength ", totalBufferLength, " targetAvailableBufferLength ", targetAvailableBufferLength, " uuid ", uuid.String())
 	if rate == 0 && pending == 0 { // This could scale down to 0
 		return 0
 	}
@@ -337,6 +340,7 @@ func (s *Scaler) desiredReplicas(ctx context.Context, vertex *dfv1.Vertex, rate 
 			desired = int32(vertex.Status.Replicas) + int32(vertex.Spec.Scale.GetReplicasPerScale())
 		} else {
 			singleReplicaContribution := float64(totalBufferLength-pending) / float64(vertex.Status.Replicas)
+			println("singleReplicaContribution - ", singleReplicaContribution, " uuid - ", uuid.String())
 			desired = int32(math.Round(float64(targetAvailableBufferLength) / singleReplicaContribution))
 		}
 	}
@@ -346,6 +350,7 @@ func (s *Scaler) desiredReplicas(ctx context.Context, vertex *dfv1.Vertex, rate 
 	if desired > int32(pending) { // For some corner cases, we don't want to scale up to more than pending.
 		desired = int32(pending)
 	}
+	println("desiredReplicas returning ", desired, " for ", vertex.Name, " uuid ", uuid.String(), " replicas ", vertex.Status.Replicas)
 	return desired
 }
 
