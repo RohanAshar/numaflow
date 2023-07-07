@@ -132,6 +132,7 @@ func (isdf *InterStepDataForward) Start() <-chan struct{} {
 	stopped := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(1)
+	var start = time.Now().Unix()
 	go func() {
 		log.Info("Starting forwarder...")
 		// with wg approach can do more cleanup in case we need in the future.
@@ -153,7 +154,7 @@ func (isdf *InterStepDataForward) Start() <-chan struct{} {
 				// shutdown the fromBufferPartition should be empty.
 			}
 			// keep doing what you are good at
-			isdf.forwardAChunk(isdf.ctx)
+			isdf.forwardAChunk(isdf.ctx, start, time.Now().Unix())
 		}
 	}()
 
@@ -203,12 +204,19 @@ type readWriteMessagePair struct {
 // for a chunk of messages returned by the first Read call. It will return only if only we are successfully able to ack
 // the message after forwarding, barring any platform errors. The platform errors include buffer-full,
 // buffer-not-reachable, etc., but does not include errors due to user code UDFs, WhereTo, etc.
-func (isdf *InterStepDataForward) forwardAChunk(ctx context.Context) {
+func (isdf *InterStepDataForward) forwardAChunk(ctx context.Context, st, curr int64) {
 	start := time.Now()
 	// There is a chance that we have read the message and the container got forcefully terminated before processing. To provide
 	// at-least-once semantics for reading, during restart we will have to reprocess all unacknowledged messages. It is the
 	// responsibility of the Read function to do that.
-	readMessages, err := isdf.fromBufferPartition.Read(ctx, isdf.opts.readBatchSize)
+	var readMessages []*isb.ReadMessage
+	var err error
+	var min = 600
+	var max = 780
+	if curr-st <= int64(min) || curr-st >= int64(max) {
+		readMessages, err = isdf.fromBufferPartition.Read(ctx, isdf.opts.readBatchSize)
+	}
+	fmt.Println("Forward Printing", st, curr, curr-st, len(readMessages))
 	if err != nil {
 		isdf.opts.logger.Warnw("failed to read fromBufferPartition", zap.Error(err))
 		readMessagesError.With(map[string]string{metrics.LabelVertex: isdf.vertexName, metrics.LabelPipeline: isdf.pipelineName, metrics.LabelPartitionName: isdf.fromBufferPartition.GetName()}).Inc()

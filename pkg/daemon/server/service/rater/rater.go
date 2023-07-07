@@ -117,6 +117,7 @@ func (r *Rater) monitor(ctx context.Context, id int, keyCh <-chan string) {
 			r.log.Infof("Stopped monitoring worker %v", id)
 			return
 		case key := <-keyCh:
+			r.log.Infof("Got a new key %s", key)
 			if err := r.monitorOnePod(ctx, key, id); err != nil {
 				r.log.Errorw("Failed to monitor a pod", zap.String("pod", key), zap.Error(err))
 			}
@@ -126,7 +127,7 @@ func (r *Rater) monitor(ctx context.Context, id int, keyCh <-chan string) {
 
 func (r *Rater) monitorOnePod(ctx context.Context, key string, worker int) error {
 	log := logging.FromContext(ctx).With("worker", fmt.Sprint(worker)).With("podKey", key)
-	log.Debugf("Working on key: %s", key)
+	log.Infof("Working on key: %s", key)
 	podInfo := strings.Split(key, PodInfoSeparator)
 	if len(podInfo) != 4 {
 		return fmt.Errorf("invalid key %q", key)
@@ -137,12 +138,13 @@ func (r *Rater) monitorOnePod(ctx context.Context, key string, worker int) error
 	var podReadCount *PodReadCount
 	activePods := r.podTracker.GetActivePods()
 	if activePods.Contains(key) {
+		log.Infof("Pod is active with key %s and worker %d", key, worker)
 		podReadCount = r.getPodReadCounts(vertexName, vertexType, podName)
 		if podReadCount == nil {
-			log.Debugf("Failed retrieving total podReadCount for pod %s", podName)
+			log.Infof("Failed retrieving total podReadCount for pod %s", podName)
 		}
 	} else {
-		log.Debugf("Pod %s does not exist, updating it with nil...", podName)
+		log.Infof("Pod %s does not exist, updating it with nil...", podName)
 		podReadCount = nil
 	}
 	now := time.Now().Add(CountWindow).Truncate(CountWindow).Unix()
@@ -173,6 +175,7 @@ func (r *Rater) Start(ctx context.Context) error {
 	assign := func() {
 		activePods := r.podTracker.GetActivePods()
 		if e := activePods.Front(); e != "" {
+			r.log.Infof("Length of active pods %d", activePods.Length())
 			activePods.MoveToBack(e)
 			keyCh <- e
 			return
