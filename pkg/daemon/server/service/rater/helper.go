@@ -17,6 +17,8 @@ limitations under the License.
 package server
 
 import (
+	"github.com/numaproj/numaflow/pkg/shared/logging"
+	"go.uber.org/zap"
 	"time"
 
 	sharedqueue "github.com/numaproj/numaflow/pkg/shared/queue"
@@ -43,9 +45,11 @@ func UpdateCount(q *sharedqueue.OverflowQueue[*TimestampedCounts], time int64, p
 }
 
 // CalculateRate calculates the rate of the vertex partition in the last lookback seconds
-func CalculateRate(q *sharedqueue.OverflowQueue[*TimestampedCounts], lookbackSeconds int64, partitionName string) float64 {
+func CalculateRate(q *sharedqueue.OverflowQueue[*TimestampedCounts], lookbackSeconds int64, partitionName, vertexName string) float64 {
+	log := logging.NewLogger().Named("Helper")
 	counts := q.Items()
 	if len(counts) <= 1 {
+		log.Info("Length of count < 1, rate 0", zap.String("Vertex", vertexName), zap.String("Partition", partitionName))
 		return 0
 	}
 	startIndex := findStartIndex(lookbackSeconds, counts)
@@ -53,6 +57,7 @@ func CalculateRate(q *sharedqueue.OverflowQueue[*TimestampedCounts], lookbackSec
 	// we can be sure that the last but one element in the queue is complete.
 	endIndex := len(counts) - 2
 	if startIndex == IndexNotFound {
+		log.Info("StartIdx not found, rate 0", zap.String("Vertex", vertexName), zap.String("Partition", partitionName))
 		return 0
 	}
 
@@ -62,6 +67,7 @@ func CalculateRate(q *sharedqueue.OverflowQueue[*TimestampedCounts], lookbackSec
 	if timeDiff == 0 {
 		// if the time difference is 0, we return 0 to avoid division by 0
 		// this should not happen in practice because we are using a 10s interval
+		log.Info("Time diff is 0, rate 0", zap.String("Vertex", vertexName), zap.String("Partition", partitionName))
 		return 0
 	}
 	rate := getDeltaBetweenTimestampedCounts(counts[startIndex], counts[endIndex], partitionName) / float64(timeDiff)
@@ -76,6 +82,9 @@ func CalculateRate(q *sharedqueue.OverflowQueue[*TimestampedCounts], lookbackSec
 		if counts[i] != nil && counts[i+1] != nil {
 			delta += calculatePartitionDelta(counts[i], counts[i+1], partitionName)
 		}
+	}
+	if delta == 0.0 {
+		log.Info("delta is 0, rate 0", zap.String("Vertex", vertexName), zap.String("Partition", partitionName))
 	}
 	return delta / float64(timeDiff)
 }

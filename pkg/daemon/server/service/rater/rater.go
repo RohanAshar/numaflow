@@ -126,7 +126,7 @@ func (r *Rater) monitor(ctx context.Context, id int, keyCh <-chan string) {
 
 func (r *Rater) monitorOnePod(ctx context.Context, key string, worker int) error {
 	log := logging.FromContext(ctx).With("worker", fmt.Sprint(worker)).With("podKey", key)
-	log.Debugf("Working on key: %s", key)
+	log.Infof("Working on key: %s", key)
 	podInfo := strings.Split(key, PodInfoSeparator)
 	if len(podInfo) != 4 {
 		return fmt.Errorf("invalid key %q", key)
@@ -137,12 +137,13 @@ func (r *Rater) monitorOnePod(ctx context.Context, key string, worker int) error
 	var podReadCount *PodReadCount
 	activePods := r.podTracker.GetActivePods()
 	if activePods.Contains(key) {
+		log.Infof("Pod is active with key %s and worker %d", key, worker)
 		podReadCount = r.getPodReadCounts(vertexName, vertexType, podName)
 		if podReadCount == nil {
-			log.Debugf("Failed retrieving total podReadCount for pod %s", podName)
+			log.Infof("Failed retrieving total podReadCount for pod %s", podName)
 		}
 	} else {
-		log.Debugf("Pod %s does not exist, updating it with nil...", podName)
+		log.Infof("Pod %s does not exist, updating it with nil...", podName)
 		podReadCount = nil
 	}
 	now := time.Now().Add(CountWindow).Truncate(CountWindow).Unix()
@@ -173,6 +174,7 @@ func (r *Rater) Start(ctx context.Context) error {
 	assign := func() {
 		activePods := r.podTracker.GetActivePods()
 		if e := activePods.Front(); e != "" {
+			r.log.Infof("Length of active pods %d", activePods.Length())
 			activePods.MoveToBack(e)
 			keyCh <- e
 			return
@@ -219,13 +221,15 @@ func (r *Rater) getPodReadCounts(vertexName, vertexType, podName string) *PodRea
 	// scrape the read total metric from pod metric port
 	url := fmt.Sprintf("https://%s.%s.%s.svc:%v/metrics", podName, r.pipeline.Name+"-"+vertexName+"-headless", r.pipeline.Namespace, v1alpha1.VertexMetricsPort)
 	if res, err := r.httpClient.Get(url); err != nil {
-		r.log.Errorf("failed reading the metrics endpoint, %v", err.Error())
+		r.log.Infof("failed parsing to prometheus metrics families for %s - %s", vertexName, podName)
+		//r.log.Errorf("failed reading the metrics endpoint, %v", err.Error())
 		return nil
 	} else {
 		textParser := expfmt.TextParser{}
 		result, err := textParser.TextToMetricFamilies(res.Body)
 		if err != nil {
-			r.log.Errorf("failed parsing to prometheus metric families, %v", err.Error())
+			r.log.Infof("failed parsing to prometheus metrics families for %s - %s", vertexName, podName)
+			//r.log.Errorf("failed parsing to prometheus metric families, %v", err.Error())
 			return nil
 		}
 		var readTotalMetricName string
@@ -244,12 +248,14 @@ func (r *Rater) getPodReadCounts(vertexName, vertexType, podName string) *PodRea
 						partitionName = label.GetValue()
 					}
 				}
+				r.log.Info("Partition Cnt Value", zap.String("Vertex", vertexName), zap.String("Pod", podName), zap.String("Partition", partitionName), zap.Float64("Value", ele.Counter.GetValue()))
 				partitionReadCount[partitionName] = ele.Counter.GetValue()
 			}
 			podReadCount := &PodReadCount{podName, partitionReadCount}
 			return podReadCount
 		} else {
-			r.log.Errorf("failed getting the read total metric, the metric is not available.")
+			r.log.Infof("failed parsing to prometheus metrics families for %s - %s", vertexName, podName)
+			//r.log.Errorf("failed getting the read total metric, the metric is not available.")
 			return nil
 		}
 	}
@@ -260,8 +266,9 @@ func (r *Rater) GetRates(vertexName, partitionName string) map[string]float64 {
 	var result = make(map[string]float64)
 	// calculate rates for each lookback seconds
 	for n, i := range r.buildLookbackSecondsMap(vertexName) {
-		r := CalculateRate(r.timestampedPodCounts[vertexName], i, partitionName)
-		result[n] = r
+		rt := CalculateRate(r.timestampedPodCounts[vertexName], i, partitionName, vertexName)
+		result[n] = rt
+		r.log.Info("Returning rates for UI", zap.String("Vertex", vertexName), zap.String("Partition", partitionName), zap.Float64("Value", rt))
 	}
 	return result
 }

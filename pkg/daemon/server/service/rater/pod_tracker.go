@@ -98,8 +98,10 @@ func (pt *PodTracker) Start(ctx context.Context) error {
 						// podKey is used as a unique identifier for the pod, it is used by worker to determine the count of processed messages of the pod.
 						podKey := strings.Join([]string{pt.pipeline.Name, v.Name, fmt.Sprintf("%d", i), vType}, PodInfoSeparator)
 						if pt.isActive(v.Name, podName) {
+							pt.log.Infof("Pod is active %s", podName)
 							pt.activePods.PushBack(podKey)
 						} else {
+							pt.log.Infof("Pod is not active, %s", podName)
 							pt.activePods.Remove(podKey)
 							// we assume all the pods are ordered with continuous indices, hence as we keep increasing the index, if we don't find one, we can stop looking.
 							// the assumption holds because when we scale down, we always scale down from the last pod.
@@ -117,6 +119,7 @@ func (pt *PodTracker) Start(ctx context.Context) error {
 }
 
 func (pt *PodTracker) GetActivePods() *UniqueStringList {
+	pt.log.Infof("Invoked GetActivePods - len %d", pt.activePods.Length())
 	return pt.activePods
 }
 
@@ -129,7 +132,9 @@ func (pt *PodTracker) isActive(vertexName, podName string) bool {
 		// it truly means the pod doesn't exist.
 		// in reality, we can imagine that a pod can be active but the Head request times out for some reason and returns an incorrect false,
 		// if we ever observe such case, we can think about adding retry here.
+		pt.log.Infof("Pod is not active error, %s, error - %s", podName, err.Error())
 		return false
 	}
+	pt.log.Infof("Pod is active, %s", podName)
 	return true
 }

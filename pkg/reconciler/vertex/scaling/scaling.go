@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	uuid2 "github.com/google/uuid"
 	"math"
 	"strings"
 	"sync"
@@ -342,6 +343,8 @@ func (s *Scaler) desiredReplicas(ctx context.Context, vertex *dfv1.Vertex, parti
 		rate := partitionProcessingRate[i]
 		pending := partitionPending[i]
 		var desired int32
+		uuid, _ := uuid2.NewUUID()
+		println("desiredReplicas was called ", vertex.Name, " partition ", i, " rate ", rate, " pending ", pending, " totalBufferLength ", partitionBufferLengths[i], " targetAvailableBufferLength ", partitionAvailableBufferLengths[i], " uuid ", uuid.String())
 		if pending == 0 || rate == 0 {
 			// Pending is 0 and rate is not 0, or rate is 0 and pending is not 0, we don't do anything.
 			// Technically this would not happen because the pending includes ackpending, which means rate and pending are either both 0, or both > 0.
@@ -362,6 +365,7 @@ func (s *Scaler) desiredReplicas(ctx context.Context, vertex *dfv1.Vertex, parti
 				desired = int32(vertex.Status.Replicas) + int32(vertex.Spec.Scale.GetReplicasPerScale())
 			} else {
 				singleReplicaContribution := float64(partitionBufferLengths[i]-pending) / float64(vertex.Status.Replicas)
+				println("singleReplicaContribution - ", singleReplicaContribution, " uuid - ", uuid.String())
 				desired = int32(math.Round(float64(partitionAvailableBufferLengths[i]) / singleReplicaContribution))
 			}
 		}
@@ -372,6 +376,7 @@ func (s *Scaler) desiredReplicas(ctx context.Context, vertex *dfv1.Vertex, parti
 		if desired > int32(pending) { // For some corner cases, we don't want to scale up to more than pending.
 			desired = int32(pending)
 		}
+		println("desiredReplicas returning ", desired, " for ", vertex.Name, " uuid ", uuid.String(), " replicas ", vertex.Status.Replicas)
 		// maxDesired is the max of all partitions
 		if desired > maxDesired {
 			maxDesired = desired
