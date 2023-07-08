@@ -93,6 +93,7 @@ func (pt *PodTracker) Start(ctx context.Context) error {
 					} else {
 						vType = "non_reduce"
 					}
+					println("max replicas - ", v.Scale.GetMaxReplicas(), " v name - ", v.Name, " v type - ", vType)
 					for i := 0; i < int(v.Scale.GetMaxReplicas()); i++ {
 						podName := fmt.Sprintf("%s-%s-%d", pt.pipeline.Name, v.Name, i)
 						// podKey is used as a unique identifier for the pod, it is used by worker to determine the count of processed messages of the pod.
@@ -127,14 +128,16 @@ func (pt *PodTracker) isActive(vertexName, podName string) bool {
 	// using the vertex headless service to check if a pod exists or not.
 	// example for 0th pod : https://simple-pipeline-in-0.simple-pipeline-in-headless.default.svc:2469/metrics
 	url := fmt.Sprintf("https://%s.%s.%s.svc:%v/metrics", podName, pt.pipeline.Name+"-"+vertexName+"-headless", pt.pipeline.Namespace, v1alpha1.VertexMetricsPort)
-	if _, err := pt.httpClient.Head(url); err != nil {
+	resp, err := pt.httpClient.Head(url)
+	if err != nil {
 		// during performance test (100 pods per vertex), we never saw a false negative, meaning every time isActive returns false,
 		// it truly means the pod doesn't exist.
 		// in reality, we can imagine that a pod can be active but the Head request times out for some reason and returns an incorrect false,
 		// if we ever observe such case, we can think about adding retry here.
-		pt.log.Infof("Pod is not active error, %s, error - %s", podName, err.Error())
+		pt.log.Infof("Failed to check if pod %s is active: %v", podName, err)
 		return false
 	}
-	pt.log.Infof("Pod is active, %s", podName)
+	pt.log.Infof("Successfully checked if pod %s is active: %v", podName, resp.StatusCode)
+	_ = resp.Body.Close()
 	return true
 }
